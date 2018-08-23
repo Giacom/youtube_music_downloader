@@ -12,6 +12,7 @@ import atexit
 download_directory = "music_downloader"
 youtube_search = None
 current_download = None
+dry_run = False
 
 def clean_download():
     global current_download
@@ -26,11 +27,16 @@ def main():
     parser.add_argument("artist", metavar='Artist', type=str, nargs='?', help="Artist name")
     parser.add_argument("category", metavar='Category', type=str, nargs='?', help="Song category for organisation")
     parser.add_argument("--amazon-playlist-json", metavar='JSON', type=file, help="Amazon playlist JSON file to go through and download from")
+    parser.add_argument("--dry-run", action='store_true', help="Do not download the file")
+
 
     args = parser.parse_args()
     
     global youtube_search
     youtube_search = build("youtube", "v3")
+
+    global dry_run
+    dry_run = args.dry_run
 
     if not os.path.exists(download_directory):
         os.mkdir(download_directory)
@@ -56,18 +62,20 @@ def download_amazon_json(file):
         artist = remove_non_ascii(metadata["artistName"])
         album = remove_non_ascii(metadata["albumName"])
 
-        target = download_directory
-        if not category is None:
-            target += "/" + category
-        if not os.path.exists(target):
-            os.mkdir(target)
-        filename = helpers.safe_filename(title + " - " + artist)
+        global dry_run
+        if dry_run == False:
+            target = download_directory
+            if not category is None:
+                target += "/" + category
+            if not os.path.exists(target):
+                os.mkdir(target)
+            filename = helpers.safe_filename(title + " - " + artist)
         
-        file_target = '{filename}.mp4'.format(filename=filename)
+            file_target = '{filename}.mp4'.format(filename=filename)
 
-        if os.path.isfile(target + "/" + file_target):
-            print("File already detected")
-            continue
+            if os.path.isfile(target + "/" + file_target):
+                print("File already detected")
+                continue
 
         url = search_song(title, artist)
         if not url is None:
@@ -107,6 +115,10 @@ def get_song(category, song, artist):
         download_song(YouTube(urlToDownload), category, song, artist)
 
 def download_song(yt, category, song, artist):
+    global dry_run
+    if dry_run == True:
+        return
+
     global current_download
     
     stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('resolution').desc().first()
@@ -143,12 +155,13 @@ def search_song(song, artist):
     global youtube_search
 
     print("Searching for " + song + " by " + artist)
-    search_query = song + " " + artist + " HQ song audio"
-    result = youtube_search.search().list(q=search_query, part="id", maxResults=1).execute()
+    search_query = song + " " + artist + " song"#+ " HQ song audio"
+    result = youtube_search.search().list(q=search_query, part="id,snippet", maxResults=1).execute()
 
     videoId = None
     try:
         videoId = result["items"][0]["id"]["videoId"]
+        print("Found {0}".format(result["items"][0]["snippet"]["title"]))
     except:
         print("Error searching for song")
         return None
