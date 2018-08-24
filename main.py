@@ -27,6 +27,8 @@ def main():
     parser.add_argument("artist", metavar='Artist', type=str, nargs='?', help="Artist name")
     parser.add_argument("category", metavar='Category', type=str, nargs='?', help="Song category for organisation")
     parser.add_argument("--amazon-playlist-json", metavar='JSON', type=file, help="Amazon playlist JSON file to go through and download from")
+    parser.add_argument("--amazon-start", metavar='Start', action='store', default=1, type=int)
+    parser.add_argument("--amazon-end", metavar='End', action='store', default=500, type=int)
     parser.add_argument("--dry-run", action='store_true', help="Do not download the file")
 
 
@@ -42,12 +44,12 @@ def main():
         os.mkdir(download_directory)
 
     if not args.amazon_playlist_json is None:
-        download_amazon_json(args.amazon_playlist_json)
+        download_amazon_json(args.amazon_playlist_json, args.amazon_start, args.amazon_end)
     elif not args.song is None:
         get_song(args.category, args.song, args.artist)
 
 
-def download_amazon_json(file):
+def download_amazon_json(file, start, end):
     amazon_json = json.load(file)
     songs = amazon_json["playlists"][0]["tracks"]
     category = remove_non_ascii(amazon_json["playlists"][0]["metadata"]["title"])
@@ -55,12 +57,18 @@ def download_amazon_json(file):
     song_num = 0
     for song in songs:
         song_num += 1
-        print("Song {0}/{1}".format(song_num, len(songs)))
+        if song_num < start:
+            continue
+        if song_num > end:
+            break
+       
 
         metadata = song["metadata"]["requestedMetadata"]
         title = clean_title(remove_non_ascii(metadata["title"]))
         artist = remove_non_ascii(metadata["artistName"])
         album = remove_non_ascii(metadata["albumName"])
+        
+        print("Song {0}/{1}\nProcessing {2} - {3}".format(song_num, len(songs), title, artist))
 
         global dry_run
         if dry_run == False:
@@ -177,8 +185,10 @@ def search_song(song, artist):
                 url_to_download = "https://www.youtube.com/watch?v=" + video_id
                 urls.append(url_to_download)
 
-                print("Found {0}".format(result["items"][i]["snippet"]["title"]))
-        except RuntimeError as e:
+                title = remove_non_ascii(result["items"][i]["snippet"]["title"])
+
+                print("Found {0}".format(title))
+        except BaseException as e:
             print("Error searching for song: " + str(e))
             continue
     return urls
