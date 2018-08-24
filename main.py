@@ -77,9 +77,12 @@ def download_amazon_json(file):
                 print("File already detected")
                 continue
 
-        url = search_song(title, artist)
-        if not url is None:
-            download_song(YouTube(url, False, download_progress, download_complete), category, title, artist)
+        urls = search_song(title, artist)
+        for url in urls:
+            downloaded = download_song(YouTube(url, False, download_progress, download_complete), category, title, artist)
+            if downloaded:
+                break
+
         #print(clean_title(title) + " - " + title + " = " + artist + " / " + album)
 
 def download_complete(stream, file):
@@ -110,9 +113,11 @@ def clean_title(title):
 
 
 def get_song(category, song, artist):
-    urlToDownload = search_song(song, artist)
-    if not urlToDownload is None:
-        download_song(YouTube(urlToDownload), category, song, artist)
+    urls = search_song(song, artist)
+    for url in urls:
+        downloaded = download_song(YouTube(url), category, song, artist)
+        if downloaded == True:
+            break
 
 def download_song(yt, category, song, artist):
     global dry_run
@@ -147,27 +152,37 @@ def download_song(yt, category, song, artist):
 
         stream.download(target, filename)
         print("Download completed")
+        return True
     else:
         print("Unable to download " + yt.watch_url)
+        return False
 
 
 def search_song(song, artist):
     global youtube_search
 
+    max_results = 5
+
     print("Searching for " + song + " by " + artist)
     search_query = song + " " + artist + " song"#+ " HQ song audio"
-    result = youtube_search.search().list(q=search_query, part="id,snippet", maxResults=1).execute()
+    result = youtube_search.search().list(q=search_query, part="id,snippet", maxResults=max_results).execute()
 
-    videoId = None
-    try:
-        videoId = result["items"][0]["id"]["videoId"]
-        print("Found {0}".format(result["items"][0]["snippet"]["title"]))
-    except:
-        print("Error searching for song")
-        return None
+    urls = []
 
-    urlToDownload = "https://www.youtube.com/watch?v=" + videoId
-    return urlToDownload
+    for i in xrange(max_results):
+        try:
+            video_id = result["items"][i]["id"]["videoId"]
+
+            if not video_id is None:
+                url_to_download = "https://www.youtube.com/watch?v=" + video_id
+                urls.append(url_to_download)
+
+                print("Found {0}".format(result["items"][i]["snippet"]["title"]))
+        except RuntimeError as e:
+            print("Error searching for song: " + str(e))
+            continue
+    return urls
+
 
 def remove_non_ascii(text):
     if isinstance(text, unicode):
