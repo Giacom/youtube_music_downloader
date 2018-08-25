@@ -172,7 +172,7 @@ def search_song(song, artist):
     max_results = 5
 
     print("Searching for " + song + " by " + artist)
-    search_query = song + " " + artist + " song"#+ " HQ song audio"
+    search_query = song + " " + artist + " song original"#+ " HQ song audio"
     result = youtube_search.search().list(q=search_query, part="id,snippet", maxResults=max_results).execute()
 
     urls = []
