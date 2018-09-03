@@ -13,6 +13,7 @@ download_directory = "music_downloader"
 youtube_search = None
 current_download = None
 dry_run = False
+forced_type = None
 
 def clean_download():
     global current_download
@@ -30,7 +31,8 @@ def main():
     parser.add_argument("--amazon-start", metavar='Start', action='store', default=1, type=int)
     parser.add_argument("--amazon-end", metavar='End', action='store', default=500, type=int)
     parser.add_argument("--dry-run", action='store_true', help="Do not download the file")
-
+    parser.add_argument("--force-type", metavar="Type", help="Force the file to be a file-type", type=str)
+    parser.add_argument("--output", metavar='Output', help="Folder name", default="song_downloader", type=str)
 
     args = parser.parse_args()
     
@@ -40,6 +42,11 @@ def main():
     global dry_run
     dry_run = args.dry_run
 
+    global forced_type
+    forced_type = args.force_type
+
+    global download_directory
+    download_directory = args.output
     if not os.path.exists(download_directory):
         os.mkdir(download_directory)
 
@@ -79,7 +86,11 @@ def download_amazon_json(file, start, end):
                 os.mkdir(target)
             filename = helpers.safe_filename(title + " - " + artist)
         
-            file_target = '{filename}.mp4'.format(filename=filename)
+            global forced_type
+            file_type = "mp4"
+            if not forced_type is None:
+                file_type = forced_type
+            file_target = '{filename}.{type}'.format(filename=filename, type=file_type)
 
             if os.path.isfile(target + "/" + file_target):
                 print("File already detected")
@@ -94,7 +105,7 @@ def download_amazon_json(file, start, end):
         #print(clean_title(title) + " - " + title + " = " + artist + " / " + album)
 
 def download_complete(stream, file):
-    print("Downloaded " + file.name)
+    pass
 
 def download_progress(stream, chunk, file_handle, bytes_remaining):
     percentage = (float(stream.filesize - bytes_remaining) / float(stream.filesize))
@@ -145,7 +156,10 @@ def download_song(yt, category, song, artist):
             os.mkdir(target)
         filename = helpers.safe_filename(song + " - " + artist)
         
-        file_target = '{filename}.{s.subtype}'.format(filename=filename, s=stream)
+        global forced_type
+        if not forced_type is None:
+            stream.subtype = forced_type
+        file_target = '{filename}.{file_type}'.format(filename=filename, file_type=stream.subtype)
 
         file_path = target + "/" + file_target
         if os.path.isfile(file_path):
